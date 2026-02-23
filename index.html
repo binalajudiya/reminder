@@ -369,10 +369,11 @@
 
   <button class="fab" id="app-fab">+</button>
 
-  <!-- Debug bar - remove once everything works -->
+  <!-- Debug bar -->
   <div class="debug-bar" id="debug-bar">
     <span id="debug-info">Loading...</span>
-    <button id="debug-test">🔔 Test Alert</button>
+    <span id="push-status" style="color:#FDD835;">PUSH: ?</span>
+    <button id="debug-test">🔔 Test</button>
   </div>
 
   <div class="overlay" id="app-overlay">
@@ -418,6 +419,7 @@
 <!-- ============================================================ -->
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
 
 <script>
 // ==================================================================
@@ -435,6 +437,13 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+
+// ⚠️ PASTE YOUR VAPID KEY BELOW (Firebase Console → Project Settings → Cloud Messaging → Web Push certificates → Generate key pair)
+const VAPID_KEY = 'BHtgnxgKIlXTVjMzM527-2snveyUthu0Qzp7jt9T_Kpwbl2BV5BM6uOxzolcc7p1OE2PtaL_lmuXWddPUbxGF_A';
+
+let messaging = null;
+try { messaging = firebase.messaging(); } catch(e) { console.log('FCM not supported'); }
+let fcmToken = null;
 
 // ==================================================================
 // STATE
@@ -542,6 +551,48 @@ function fbRemove(id) { db.ref(`couples/${coupleId}/reminders/${id}`).remove(); 
 function fbUpdate(id, data) { db.ref(`couples/${coupleId}/reminders/${id}`).update(data); }
 
 // ==================================================================
+// FCM PUSH NOTIFICATIONS
+// ==================================================================
+async function setupPush() {
+  const pushEl = $('#push-status');
+  const updateStatus = (s) => { if(pushEl) pushEl.textContent = 'PUSH: ' + s; };
+
+  if(!messaging) { updateStatus('N/A'); return; }
+  if(VAPID_KEY === 'YOUR_VAPID_KEY_HERE') { updateStatus('⚠️ Set VAPID key'); return; }
+
+  try {
+    const sw = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    const permission = await Notification.requestPermission();
+    if(permission !== 'granted') { updateStatus('DENIED'); return; }
+
+    fcmToken = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: sw });
+    if(!fcmToken) { updateStatus('NO TOKEN'); return; }
+
+    // Store token in Firebase
+    const tokenKey = fcmToken.substring(0, 20);
+    await db.ref(`couples/${coupleId}/tokens/${tokenKey}`).set({
+      token: fcmToken, role: myRole, name: myRole==='person1'?person1Name:person2Name, updated: Date.now()
+    });
+
+    updateStatus('✅ ON');
+    $('#app-notif-btn').style.display = 'none';
+
+    // Foreground messages
+    messaging.onMessage((payload) => {
+      playChime();
+      const title = payload.notification?.title || 'Reminder';
+      const body = payload.notification?.body || '';
+      $('#app-toast-msg').innerHTML = `<strong>${escHtml(title)}</strong>: ${escHtml(body)}`;
+      $('#app-toast').classList.add('show');
+      setTimeout(() => $('#app-toast').classList.remove('show'), 8000);
+    });
+  } catch(err) {
+    console.error('Push error:', err);
+    updateStatus('ERR: ' + err.message.substring(0, 30));
+  }
+}
+
+// ==================================================================
 // WELCOME SCREEN
 // ==================================================================
 $('#btn-create').addEventListener('click', () => showScreen('create'));
@@ -614,12 +665,12 @@ $('#btn-copy-code').addEventListener('click', () => {
 });
 
 $('#btn-code-continue').addEventListener('click', () => {
-  // Creator is person1 by default
   myRole = 'person1';
   saveLocal();
   startSync();
   initApp();
   showScreen('app');
+  setupPush();
 });
 
 // ==================================================================
@@ -641,6 +692,7 @@ $('#btn-pick-go').addEventListener('click', () => {
   startSync();
   initApp();
   showScreen('app');
+  setupPush();
 });
 
 // ==================================================================
@@ -653,14 +705,11 @@ function initApp() {
   $$('.a-label[data-for="person2"]').forEach(el => el.textContent = person2Name);
   selectedAssignee = myRole;
 
-  // Notifications
+  // Show push button if not granted
   if('Notification' in window && Notification.permission !== 'granted') {
     $('#app-notif-btn').style.display = 'block';
   }
-  $('#app-notif-btn').addEventListener('click', async () => {
-    const p = await Notification.requestPermission();
-    if(p==='granted') $('#app-notif-btn').style.display = 'none';
-  });
+  $('#app-notif-btn').addEventListener('click', () => setupPush());
 }
 
 // RENDER
@@ -789,6 +838,8 @@ $('#app-save').addEventListener('click', () => {
     const keysToRemove = [];
     notifiedSet.forEach(k => { if(k.startsWith(editingId)) keysToRemove.push(k); });
     keysToRemove.forEach(k => notifiedSet.delete(k));
+    // Also clear the 'notified' flag so cloud function will re-send push
+    data.notified = false;
     fbUpdate(editingId, data);
   } else {
     fbSet(genId(), data);
@@ -802,6 +853,11 @@ $('#app-toast-close').addEventListener('click', () => $('#app-toast').classList.
 // LOGOUT
 $('#app-logout-btn').addEventListener('click', () => {
   if(confirm('Switch user or leave this space?')) {
+    // Remove FCM token from Firebase
+    if(fcmToken && coupleId) {
+      const tokenKey = fcmToken.substring(0, 20);
+      db.ref(`couples/${coupleId}/tokens/${tokenKey}`).remove();
+    }
     localStorage.removeItem(LOCAL_KEY);
     if(dbRef) dbRef.off();
     location.reload();
@@ -889,6 +945,7 @@ if(loadLocal()) {
       startSync();
       initApp();
       showScreen('app');
+      setupPush();
     } else {
       localStorage.removeItem(LOCAL_KEY);
       showScreen('welcome');
