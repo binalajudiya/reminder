@@ -1,0 +1,10 @@
+const firebaseConfig = {
+  apiKey: "AIzaSyAn4zE7zPyv7E8FObb3GdhkDuhs5OvTrzs",
+  authDomain: "reminder-c471c.firebaseapp.com",
+  databaseURL: "https://reminder-c471c-default-rtdb.firebaseio.com/",
+  projectId: "reminder-c471c",
+  storageBucket: "reminder-c471c.firebasestorage.app",
+  messagingSenderId: "748294654989",
+  appId: "1:748294654989:web:8f20508178fce97305d944",
+  measurementId: "G-1VN4HVJFXX"
+};

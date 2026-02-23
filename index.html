@@ -517,7 +517,7 @@ function startSync() {
   dbRef = db.ref('couples/' + coupleId + '/reminders');
   dbRef.on('value', snap => {
     reminders = snap.val() || {};
-    renderApp();
+    renderApp(); // This also runs checkNotifs inside
   });
 }
 
@@ -769,6 +769,10 @@ $('#app-save').addEventListener('click', () => {
     created: Date.now()
   };
   if(editingId) {
+    // Clear ALL old notification keys for this reminder so it can re-trigger
+    const keysToRemove = [];
+    notifiedSet.forEach(k => { if(k.startsWith(editingId)) keysToRemove.push(k); });
+    keysToRemove.forEach(k => notifiedSet.delete(k));
     fbUpdate(editingId, data);
   } else {
     fbSet(genId(), data);
@@ -792,14 +796,19 @@ $('#app-logout-btn').addEventListener('click', () => {
 // NOTIFICATIONS
 // ==================================================================
 function checkNotifs(upcoming) {
+  const now = new Date();
   const nowDate = getToday();
-  const nowTime = getNow();
+  const nowMs = now.getTime();
   (upcoming||[]).forEach(r => {
     if(r.done) return;
     const key = r.id+r.date+r.time;
     if(notifiedSet.has(key)) return;
     const isForMe = r.assignee === myRole || r.assignee === 'both';
-    if(r.date===nowDate && r.time===nowTime && isForMe) {
+    if(!isForMe) return;
+    // Check if reminder time is within a 2-minute window (not missed by seconds)
+    const reminderTime = new Date(r.date + 'T' + r.time + ':00').getTime();
+    const diff = nowMs - reminderTime;
+    if(r.date === nowDate && diff >= 0 && diff < 120000) { // within 0 to 2 minutes
       notifiedSet.add(key);
       playChime();
       $('#app-toast-msg').innerHTML = `<strong>${nameOf(r.assignee)}</strong>: ${escHtml(r.message)}`;
@@ -811,7 +820,7 @@ function checkNotifs(upcoming) {
     }
   });
 }
-setInterval(() => renderApp(), 15000);
+setInterval(() => renderApp(), 5000); // Check every 5 seconds for better accuracy
 
 // ==================================================================
 // INIT — AUTO-LOGIN IF RETURNING
