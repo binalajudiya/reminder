@@ -129,7 +129,7 @@
   }
 
   /* ===== TABS ===== */
-  .main { max-width: 600px; margin: 0 auto; padding: 20px 16px 120px; }
+  .main { max-width: 600px; margin: 0 auto; padding: 20px 16px 140px; }
   .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
   .tab {
     flex: 1; padding: 12px; background: var(--card); border: 2px solid var(--border);
@@ -180,7 +180,7 @@
 
   /* ===== FAB ===== */
   .fab {
-    position: fixed; bottom: 28px; right: 28px; width: 60px; height: 60px;
+    position: fixed; bottom: 56px; right: 28px; width: 60px; height: 60px;
     border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-dark));
     color: #fff; border: none; font-size: 32px; font-weight: 300;
     box-shadow: 0 6px 24px rgba(232,98,108,0.4); cursor: pointer;
@@ -188,6 +188,17 @@
     transition: transform 0.2s; z-index: 50;
   }
   .fab:active { transform: scale(0.9); }
+
+  /* ===== DEBUG BAR ===== */
+  .debug-bar {
+    position: fixed; bottom: 0; left: 0; right: 0; background: #2D2D2D; color: #69F0AE;
+    font-size: 11px; padding: 6px 16px; font-family: monospace; z-index: 200;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .debug-bar button {
+    background: #E8626C; color: #fff; border: none; border-radius: 8px;
+    padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
 
   /* ===== FORM OVERLAY ===== */
   .overlay {
@@ -358,6 +369,12 @@
 
   <button class="fab" id="app-fab">+</button>
 
+  <!-- Debug bar - remove once everything works -->
+  <div class="debug-bar" id="debug-bar">
+    <span id="debug-info">Loading...</span>
+    <button id="debug-test">🔔 Test Alert</button>
+  </div>
+
   <div class="overlay" id="app-overlay">
     <div class="form-card" onclick="event.stopPropagation()">
       <h2 class="form-title" id="app-form-title">New Reminder</h2>
@@ -409,12 +426,11 @@
 const firebaseConfig = {
   apiKey: "AIzaSyAn4zE7zPyv7E8FObb3GdhkDuhs5OvTrzs",
   authDomain: "reminder-c471c.firebaseapp.com",
-  databaseURL: "https://reminder-c471c-default-rtdb.firebaseio.com/",
+  databaseURL: "https://reminder-c471c-default-rtdb.firebaseio.com",
   projectId: "reminder-c471c",
   storageBucket: "reminder-c471c.firebasestorage.app",
   messagingSenderId: "748294654989",
-  appId: "1:748294654989:web:8f20508178fce97305d944",
-  measurementId: "G-1VN4HVJFXX"
+  appId: "1:748294654989:web:8f20508178fce97305d944"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -799,28 +815,65 @@ function checkNotifs(upcoming) {
   const now = new Date();
   const nowDate = getToday();
   const nowMs = now.getTime();
+  const nowStr = getNow();
+  let debugMsg = `⏱ ${nowStr} | role: ${myRole} | notif: ${Notification.permission} | reminders: ${(upcoming||[]).length}`;
+
   (upcoming||[]).forEach(r => {
     if(r.done) return;
     const key = r.id+r.date+r.time;
-    if(notifiedSet.has(key)) return;
     const isForMe = r.assignee === myRole || r.assignee === 'both';
-    if(!isForMe) return;
-    // Check if reminder time is within a 2-minute window (not missed by seconds)
     const reminderTime = new Date(r.date + 'T' + r.time + ':00').getTime();
     const diff = nowMs - reminderTime;
-    if(r.date === nowDate && diff >= 0 && diff < 120000) { // within 0 to 2 minutes
+    const alreadyNotified = notifiedSet.has(key);
+
+    // Show debug for first upcoming reminder
+    if(isForMe && !alreadyNotified) {
+      if(diff < 0) {
+        const secsLeft = Math.round(-diff/1000);
+        const minsLeft = Math.floor(secsLeft/60);
+        debugMsg += ` | "${r.message}" in ${minsLeft}m ${secsLeft%60}s`;
+      } else if(diff >= 0 && diff < 120000) {
+        debugMsg += ` | "${r.message}" FIRING NOW!`;
+      }
+    }
+
+    if(alreadyNotified) return;
+    if(!isForMe) return;
+
+    // Trigger if within 2-minute window
+    if(r.date === nowDate && diff >= 0 && diff < 120000) {
       notifiedSet.add(key);
       playChime();
+      debugMsg += ' ✅ NOTIFIED!';
       $('#app-toast-msg').innerHTML = `<strong>${nameOf(r.assignee)}</strong>: ${escHtml(r.message)}`;
       $('#app-toast').classList.add('show');
-      setTimeout(() => $('#app-toast').classList.remove('show'), 6000);
+      setTimeout(() => $('#app-toast').classList.remove('show'), 8000);
       if(Notification.permission==='granted') {
-        new Notification(`⏰ ${escHtml(r.message)}`, { body: `Reminder for ${nameOf(r.assignee)}`, tag: key });
+        new Notification(`⏰ ${r.message}`, { body: `Reminder for ${nameOf(r.assignee)}`, tag: key });
       }
     }
   });
+
+  // Update debug bar
+  const debugEl = $('#debug-info');
+  if(debugEl) debugEl.textContent = debugMsg;
 }
-setInterval(() => renderApp(), 5000); // Check every 5 seconds for better accuracy
+
+// Test button
+document.addEventListener('DOMContentLoaded', () => {
+  const testBtn = $('#debug-test');
+  if(testBtn) testBtn.addEventListener('click', () => {
+    playChime();
+    $('#app-toast-msg').innerHTML = `<strong>Test</strong>: If you see this + hear a chime, alerts work! 🎉`;
+    $('#app-toast').classList.add('show');
+    setTimeout(() => $('#app-toast').classList.remove('show'), 5000);
+    if(Notification.permission==='granted') {
+      new Notification('🧪 Test Alert', { body: 'Browser notifications are working!' });
+    }
+  });
+});
+
+setInterval(() => renderApp(), 5000); // Check every 5 seconds
 
 // ==================================================================
 // INIT — AUTO-LOGIN IF RETURNING
