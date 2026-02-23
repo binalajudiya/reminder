@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#E8626C">
+<title>We Remember 💕</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #FFF8F3; --card: #FFFFFF; --accent: #E8626C; --accent-light: #FFF0F0;
+    --accent-dark: #C94D56; --text: #3D2C2E; --text-soft: #8A7173;
+    --border: #F0E0E2; --radius: 16px; --shadow: 0 2px 16px rgba(140,80,80,0.08);
+    --green: #4CAF50;
+  }
+  body {
+    font-family: 'Nunito', 'Segoe UI', sans-serif; background: var(--bg);
+    color: var(--text); min-height: 100vh; min-height: 100dvh;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ===== SCREENS ===== */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ===== SHARED COMPONENTS ===== */
+  .center-wrap {
+    min-height: 100vh; min-height: 100dvh; display: flex; align-items: center;
+    justify-content: center; background: linear-gradient(160deg, #FFF0F0 0%, #FFF8F3 40%, #F0E8FF 100%);
+    padding: 20px;
+  }
+  .center-card {
+    background: #fff; border-radius: 28px; padding: 44px 32px; max-width: 400px; width: 100%;
+    box-shadow: 0 8px 40px rgba(140,80,80,0.12); text-align: center;
+  }
+  .big-emoji { font-size: 52px; margin-bottom: 8px; }
+  .title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .subtitle { color: var(--text-soft); margin: 8px 0 28px; font-size: 15px; line-height: 1.5; }
+  .field-label {
+    font-size: 13px; font-weight: 700; color: var(--text-soft); display: block;
+    margin-bottom: 6px; text-align: left;
+  }
+  .field-label + .field-label { margin-top: 16px; }
+  .text-input {
+    width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: 14px;
+    font-size: 16px; outline: none; background: var(--bg); font-family: inherit;
+    transition: border 0.2s; color: var(--text);
+  }
+  .text-input:focus { border-color: var(--accent); }
+  .primary-btn {
+    width: 100%; padding: 16px; background: var(--accent); color: #fff; border: none;
+    border-radius: 16px; font-size: 17px; font-weight: 700; cursor: pointer;
+    font-family: inherit; transition: transform 0.15s, opacity 0.2s; margin-top: 24px;
+  }
+  .primary-btn:disabled { opacity: 0.4; cursor: default; }
+  .primary-btn:active:not(:disabled) { transform: scale(0.97); }
+  .secondary-btn {
+    width: 100%; padding: 14px; background: transparent; color: var(--accent); border: 2px solid var(--accent);
+    border-radius: 16px; font-size: 15px; font-weight: 700; cursor: pointer;
+    font-family: inherit; margin-top: 12px; transition: all 0.15s;
+  }
+  .secondary-btn:active { background: var(--accent-light); }
+  .divider { margin: 24px 0; color: var(--text-soft); font-size: 13px; font-weight: 700; }
+  .error-msg { color: #D32F2F; font-size: 13px; margin-top: 8px; font-weight: 600; }
+  .code-display {
+    background: var(--accent-light); border: 2px dashed var(--accent); border-radius: 16px;
+    padding: 20px; margin: 20px 0; font-size: 28px; font-weight: 800; letter-spacing: 4px;
+    color: var(--accent); user-select: all;
+  }
+  .copy-btn {
+    background: var(--accent); color: #fff; border: none; border-radius: 12px;
+    padding: 10px 20px; font-size: 14px; font-weight: 700; cursor: pointer;
+    font-family: inherit; margin-top: 8px; transition: transform 0.15s;
+  }
+  .copy-btn:active { transform: scale(0.95); }
+  .small-text { font-size: 13px; color: var(--text-soft); margin-top: 12px; line-height: 1.5; }
+
+  /* ===== PICK PERSON ===== */
+  .person-pick { display: flex; gap: 16px; margin: 20px 0; }
+  .person-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 24px 12px; border: 2.5px solid var(--border); border-radius: 20px;
+    background: var(--bg); cursor: pointer; font-family: inherit; transition: all 0.15s;
+  }
+  .person-btn.selected { border-color: var(--accent); background: var(--accent-light); }
+  .person-btn:active { transform: scale(0.96); }
+  .person-emoji { font-size: 36px; }
+  .person-name { font-size: 16px; font-weight: 700; color: var(--text); }
+
+  /* ===== HEADER ===== */
+  .header { background: linear-gradient(135deg, #E8626C 0%, #D94F7A 100%); color: #fff; }
+  .header-inner {
+    max-width: 600px; margin: 0 auto; padding: 24px 20px 20px;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  }
+  .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo-icon { font-size: 18px; margin-right: 4px; }
+  .header-sub { margin-top: 4px; font-size: 13px; opacity: 0.85; font-weight: 500; }
+  .header-right { display: flex; gap: 8px; flex-shrink: 0; }
+  .notif-btn, .logout-btn {
+    background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 10px; padding: 7px 12px; color: #fff; font-size: 12px; font-weight: 700;
+    cursor: pointer; white-space: nowrap; font-family: inherit;
+  }
+  .notif-btn:active, .logout-btn:active { opacity: 0.7; }
+  .sync-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: #69F0AE; margin-right: 6px; animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* ===== TOAST ===== */
+  .toast {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    background: #fff; border-radius: 16px; padding: 14px 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15); display: none; align-items: center;
+    gap: 12px; z-index: 999; max-width: 90%; border: 2px solid var(--accent);
+    animation: slideDown 0.3s ease;
+  }
+  .toast.show { display: flex; }
+  @keyframes slideDown { from { transform: translateX(-50%) translateY(-20px); opacity:0; } to { transform: translateX(-50%); opacity:1; } }
+  .toast-emoji { font-size: 28px; flex-shrink: 0; }
+  .toast-close {
+    background: none; border: none; font-size: 16px; color: var(--text-soft);
+    cursor: pointer; padding: 4px 8px; flex-shrink: 0;
+  }
+
+  /* ===== TABS ===== */
+  .main { max-width: 600px; margin: 0 auto; padding: 20px 16px 120px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .tab {
+    flex: 1; padding: 12px; background: var(--card); border: 2px solid var(--border);
+    border-radius: 14px; font-size: 14px; font-weight: 700; color: var(--text-soft);
+    cursor: pointer; text-align: center; font-family: inherit; transition: all 0.15s;
+  }
+  .tab.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+
+  /* ===== REMINDER CARDS ===== */
+  .reminder-list { display: flex; flex-direction: column; gap: 12px; }
+  .empty { text-align: center; padding: 48px 20px; }
+  .empty-emoji { font-size: 48px; margin-bottom: 12px; }
+  .empty-text { font-size: 17px; font-weight: 700; }
+  .empty-sub { font-size: 14px; color: var(--text-soft); margin-top: 6px; }
+  .reminder-card {
+    display: flex; align-items: flex-start; gap: 14px; padding: 18px 16px;
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+    border: 1px solid var(--border); transition: all 0.15s;
+  }
+  .reminder-card.done { opacity: 0.5; background: #FAFAFA; }
+  .reminder-card.overdue { border-left: 4px solid #FF6B6B; }
+  .reminder-card.mine { border-left: 4px solid var(--accent); }
+  .check-btn {
+    width: 28px; height: 28px; border-radius: 50%; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+    margin-top: 2px; transition: all 0.15s;
+  }
+  .check-btn.undone { border: 2.5px solid var(--accent); background: transparent; color: transparent; }
+  .check-btn.checked { border: none; background: var(--green); color: #fff; font-weight: 700; }
+  .card-body { flex: 1; min-width: 0; }
+  .card-msg { font-size: 16px; font-weight: 600; line-height: 1.4; word-break: break-word; }
+  .card-msg.strike { text-decoration: line-through; opacity: 0.5; }
+  .card-meta { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .badge {
+    padding: 4px 10px; border-radius: 10px; font-size: 12px; font-weight: 700;
+  }
+  .badge-me { background: var(--accent-light); color: var(--accent); }
+  .badge-partner { background: #E8F5E9; color: #2E7D32; }
+  .badge-both { background: #FFF3E0; color: #E65100; }
+  .card-time { font-size: 12px; color: var(--text-soft); font-weight: 600; }
+  .added-by { font-size: 11px; color: var(--text-soft); font-style: italic; }
+  .card-actions { display: flex; flex-direction: column; gap: 4px; }
+  .icon-btn {
+    background: none; border: none; font-size: 16px; cursor: pointer; padding: 4px;
+    border-radius: 8px; opacity: 0.55; transition: opacity 0.15s;
+  }
+  .icon-btn:active { opacity: 1; }
+
+  /* ===== FAB ===== */
+  .fab {
+    position: fixed; bottom: 28px; right: 28px; width: 60px; height: 60px;
+    border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: #fff; border: none; font-size: 32px; font-weight: 300;
+    box-shadow: 0 6px 24px rgba(232,98,108,0.4); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.2s; z-index: 50;
+  }
+  .fab:active { transform: scale(0.9); }
+
+  /* ===== FORM OVERLAY ===== */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.35); backdrop-filter: blur(4px);
+    display: none; align-items: flex-end; justify-content: center; z-index: 100; padding: 20px;
+  }
+  .overlay.show { display: flex; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .form-card {
+    background: #fff; border-radius: 24px; padding: 28px 24px 24px;
+    max-width: 500px; width: 100%; max-height: 85vh; overflow-y: auto;
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.12); animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .form-title { margin: 0 0 20px; font-size: 20px; font-weight: 800; }
+  .form-label { font-size: 13px; font-weight: 700; color: var(--text-soft); display: block; margin: 16px 0 6px; }
+  .form-input {
+    width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: 14px;
+    font-size: 16px; outline: none; background: var(--bg); font-family: inherit; color: var(--text);
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  .assignee-row { display: flex; gap: 10px; }
+  .assignee-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 14px 8px; border: 2px solid var(--border); border-radius: 16px;
+    background: var(--bg); cursor: pointer; font-family: inherit; color: var(--text-soft);
+    font-size: 13px; font-weight: 600; transition: all 0.15s;
+  }
+  .assignee-btn.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent); font-weight: 700; }
+  .assignee-emoji { font-size: 22px; }
+  .form-actions { display: flex; gap: 12px; margin-top: 24px; }
+  .cancel-btn {
+    flex: 1; padding: 14px; background: var(--bg); border: 2px solid var(--border);
+    border-radius: 14px; font-size: 15px; font-weight: 700; color: var(--text-soft);
+    cursor: pointer; font-family: inherit;
+  }
+  .save-btn {
+    flex: 2; padding: 14px; background: var(--accent); border: none;
+    border-radius: 14px; font-size: 15px; font-weight: 700; color: #fff;
+    cursor: pointer; font-family: inherit;
+  }
+  .save-btn:disabled { opacity: 0.4; cursor: default; }
+
+  /* ===== LOADING ===== */
+  .loading { text-align: center; padding: 60px 20px; }
+  .spinner {
+    width: 40px; height: 40px; border: 4px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- SCREEN 1: WELCOME - CREATE OR JOIN -->
+<!-- ============================================================ -->
+<div id="screen-welcome" class="screen active">
+  <div class="center-wrap">
+    <div class="center-card">
+      <div class="big-emoji">💑</div>
+      <h1 class="title">We Remember</h1>
+      <p class="subtitle">Shared reminders for couples.<br>Never forget the onions again!</p>
+      <button class="primary-btn" id="btn-create">Create Our Space</button>
+      <div class="divider">— or —</div>
+      <label class="field-label">Have a couple code? Enter it below:</label>
+      <input class="text-input" id="join-code-input" placeholder="e.g. ABCD1234" maxlength="8" style="text-transform:uppercase;text-align:center;letter-spacing:2px;font-weight:700;">
+      <button class="secondary-btn" id="btn-join" disabled>Join Partner's Space</button>
+      <div class="error-msg" id="join-error" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 2: CREATE - ENTER NAMES -->
+<!-- ============================================================ -->
+<div id="screen-create" class="screen">
+  <div class="center-wrap">
+    <div class="center-card">
+      <div class="big-emoji">✨</div>
+      <h1 class="title">Set Up Your Space</h1>
+      <p class="subtitle">Enter both names. You'll get a code to share with your partner.</p>
+      <div style="text-align:left;">
+        <label class="field-label">Your Name</label>
+        <input class="text-input" id="create-name1" placeholder="e.g. Priya" autocomplete="off">
+        <label class="field-label" style="margin-top:16px;">Partner's Name</label>
+        <input class="text-input" id="create-name2" placeholder="e.g. Rahul" autocomplete="off">
+      </div>
+      <button class="primary-btn" id="btn-create-go" disabled>Create Space →</button>
+      <button class="secondary-btn" id="btn-create-back">← Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 3: SHARE CODE -->
+<!-- ============================================================ -->
+<div id="screen-code" class="screen">
+  <div class="center-wrap">
+    <div class="center-card">
+      <div class="big-emoji">🔗</div>
+      <h1 class="title">Your Couple Code</h1>
+      <p class="subtitle">Share this code with your partner so they can join your space!</p>
+      <div class="code-display" id="display-code"></div>
+      <button class="copy-btn" id="btn-copy-code">📋 Copy Code</button>
+      <p class="small-text">Your partner opens this app → "Join Partner's Space" → enters this code</p>
+      <button class="primary-btn" id="btn-code-continue">Continue →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 4: PICK WHO YOU ARE -->
+<!-- ============================================================ -->
+<div id="screen-pick" class="screen">
+  <div class="center-wrap">
+    <div class="center-card">
+      <div class="big-emoji">👋</div>
+      <h1 class="title">Who are you?</h1>
+      <p class="subtitle">Pick your name so we know who's adding reminders!</p>
+      <div class="person-pick">
+        <button class="person-btn" id="pick-person1" data-person="person1">
+          <span class="person-emoji">👩</span>
+          <span class="person-name" id="pick-name1"></span>
+        </button>
+        <button class="person-btn" id="pick-person2" data-person="person2">
+          <span class="person-emoji">👨</span>
+          <span class="person-name" id="pick-name2"></span>
+        </button>
+      </div>
+      <button class="primary-btn" id="btn-pick-go" disabled>That's Me! →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 5: MAIN APP -->
+<!-- ============================================================ -->
+<div id="screen-app" class="screen">
+  <header class="header">
+    <div class="header-inner">
+      <div>
+        <h1 class="logo"><span class="logo-icon">♥</span> We Remember</h1>
+        <p class="header-sub"><span class="sync-dot"></span><span id="app-names"></span></p>
+      </div>
+      <div class="header-right">
+        <button class="notif-btn" id="app-notif-btn" style="display:none;">🔔</button>
+        <button class="logout-btn" id="app-logout-btn">👤 <span id="app-whoami"></span></button>
+      </div>
+    </div>
+  </header>
+
+  <div class="toast" id="app-toast">
+    <span class="toast-emoji">⏰</span>
+    <div id="app-toast-msg"></div>
+    <button class="toast-close" id="app-toast-close">✕</button>
+  </div>
+
+  <main class="main">
+    <div class="tabs">
+      <button class="tab active" id="app-tab-upcoming">Upcoming (<span id="app-count-up">0</span>)</button>
+      <button class="tab" id="app-tab-done">Done (<span id="app-count-done">0</span>)</button>
+    </div>
+    <div class="reminder-list" id="app-list"></div>
+  </main>
+
+  <button class="fab" id="app-fab">+</button>
+
+  <div class="overlay" id="app-overlay">
+    <div class="form-card" onclick="event.stopPropagation()">
+      <h2 class="form-title" id="app-form-title">New Reminder</h2>
+      <label class="form-label">What needs to be done?</label>
+      <input class="form-input" id="app-form-msg" placeholder="e.g. Buy onions on the way home" autocomplete="off">
+      <label class="form-label">Who should do this?</label>
+      <div class="assignee-row" id="app-assignee-row">
+        <button class="assignee-btn active" data-val="person1">
+          <span class="assignee-emoji">👩</span>
+          <span class="a-label" data-for="person1"></span>
+        </button>
+        <button class="assignee-btn" data-val="person2">
+          <span class="assignee-emoji">👨</span>
+          <span class="a-label" data-for="person2"></span>
+        </button>
+        <button class="assignee-btn" data-val="both">
+          <span class="assignee-emoji">💑</span>
+          <span>Both</span>
+        </button>
+      </div>
+      <div class="row">
+        <div>
+          <label class="form-label">Date</label>
+          <input type="date" class="form-input" id="app-form-date">
+        </div>
+        <div>
+          <label class="form-label">Time</label>
+          <input type="time" class="form-input" id="app-form-time">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="cancel-btn" id="app-cancel">Cancel</button>
+        <button class="save-btn" id="app-save" disabled>Add Reminder ♥</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- FIREBASE SDK -->
+<!-- ============================================================ -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+
+<script>
+// ==================================================================
+// 🔥 FIREBASE CONFIG — REPLACE THESE WITH YOUR OWN VALUES
+// ==================================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyAn4zE7zPyv7E8FObb3GdhkDuhs5OvTrzs",
+  authDomain: "reminder-c471c.firebaseapp.com",
+  databaseURL: "https://reminder-c471c-default-rtdb.firebaseio.com/",
+  projectId: "reminder-c471c",
+  storageBucket: "reminder-c471c.firebasestorage.app",
+  messagingSenderId: "748294654989",
+  appId: "1:748294654989:web:8f20508178fce97305d944",
+  measurementId: "G-1VN4HVJFXX"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ==================================================================
+// STATE
+// ==================================================================
+const LOCAL_KEY = 'we-remember-local';
+let coupleId = '';
+let person1Name = '';
+let person2Name = '';
+let myRole = ''; // 'person1' or 'person2'
+let reminders = {};
+let activeTab = 'upcoming';
+let editingId = null;
+let selectedAssignee = 'person1';
+const notifiedSet = new Set();
+let dbRef = null;
+
+// ==================================================================
+// HELPERS
+// ==================================================================
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const genCode = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let c = ''; for(let i=0;i<6;i++) c += chars[Math.floor(Math.random()*chars.length)];
+  return c;
+};
+function getToday() { return new Date().toISOString().split('T')[0]; }
+function getNow() {
+  const n=new Date();
+  return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+}
+function fmtTime(t) { const[h,m]=t.split(':');const hr=+h; return `${hr%12||12}:${m} ${hr>=12?'PM':'AM'}`; }
+function fmtDate(d) {
+  const dt=new Date(d+'T00:00:00'), today=new Date(); today.setHours(0,0,0,0);
+  const tmr=new Date(today); tmr.setDate(tmr.getDate()+1);
+  if(dt.getTime()===today.getTime()) return 'Today';
+  if(dt.getTime()===tmr.getTime()) return 'Tomorrow';
+  return dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+function isOverdue(r) {
+  if(r.done) return false;
+  return new Date(r.date+'T'+r.time) < new Date();
+}
+function myName() { return myRole==='person1' ? person1Name : person2Name; }
+function partnerName() { return myRole==='person1' ? person2Name : person1Name; }
+function nameOf(role) {
+  if(role==='person1') return person1Name;
+  if(role==='person2') return person2Name;
+  return 'Both';
+}
+function emojiOf(role) { return role==='person1'?'👩':role==='person2'?'👨':'💑'; }
+function escHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+function saveLocal() {
+  localStorage.setItem(LOCAL_KEY, JSON.stringify({ coupleId, person1Name, person2Name, myRole }));
+}
+function loadLocal() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LOCAL_KEY));
+    if(d && d.coupleId) { coupleId=d.coupleId; person1Name=d.person1Name; person2Name=d.person2Name; myRole=d.myRole; return true; }
+  } catch(e){}
+  return false;
+}
+
+// ==================================================================
+// SCREENS
+// ==================================================================
+function showScreen(id) {
+  $$('.screen').forEach(s => s.classList.remove('active'));
+  $(`#screen-${id}`).classList.add('active');
+}
+
+// ==================================================================
+// SOUND
+// ==================================================================
+function playChime() {
+  try {
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    [523.25,659.25,783.99].forEach((f,i)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.type='sine';o.frequency.value=f;
+      g.gain.setValueAtTime(0.15,ctx.currentTime+i*0.15);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+i*0.15+0.5);
+      o.connect(g);g.connect(ctx.destination);
+      o.start(ctx.currentTime+i*0.15);o.stop(ctx.currentTime+i*0.15+0.5);
+    });
+  } catch(e){}
+}
+
+// ==================================================================
+// FIREBASE SYNC
+// ==================================================================
+function startSync() {
+  if(dbRef) dbRef.off();
+  dbRef = db.ref('couples/' + coupleId + '/reminders');
+  dbRef.on('value', snap => {
+    reminders = snap.val() || {};
+    renderApp();
+  });
+}
+
+function fbSet(id, data) { db.ref(`couples/${coupleId}/reminders/${id}`).set(data); }
+function fbRemove(id) { db.ref(`couples/${coupleId}/reminders/${id}`).remove(); }
+function fbUpdate(id, data) { db.ref(`couples/${coupleId}/reminders/${id}`).update(data); }
+
+// ==================================================================
+// WELCOME SCREEN
+// ==================================================================
+$('#btn-create').addEventListener('click', () => showScreen('create'));
+
+$('#join-code-input').addEventListener('input', e => {
+  e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  $('#btn-join').disabled = e.target.value.length < 6;
+  $('#join-error').style.display = 'none';
+});
+
+$('#btn-join').addEventListener('click', async () => {
+  const code = $('#join-code-input').value.trim().toUpperCase();
+  try {
+    const snap = await db.ref('couples/' + code + '/info').once('value');
+    if (!snap.exists()) {
+      $('#join-error').textContent = 'Code not found. Please check and try again.';
+      $('#join-error').style.display = 'block';
+      return;
+    }
+    const info = snap.val();
+    coupleId = code;
+    person1Name = info.person1;
+    person2Name = info.person2;
+    $('#pick-name1').textContent = person1Name;
+    $('#pick-name2').textContent = person2Name;
+    showScreen('pick');
+  } catch(e) {
+    $('#join-error').textContent = 'Connection error. Please try again.';
+    $('#join-error').style.display = 'block';
+  }
+});
+
+// ==================================================================
+// CREATE SCREEN
+// ==================================================================
+function checkCreateFields() {
+  $('#btn-create-go').disabled = !($('#create-name1').value.trim() && $('#create-name2').value.trim());
+}
+$('#create-name1').addEventListener('input', checkCreateFields);
+$('#create-name2').addEventListener('input', checkCreateFields);
+$('#btn-create-back').addEventListener('click', () => showScreen('welcome'));
+
+$('#btn-create-go').addEventListener('click', async () => {
+  person1Name = $('#create-name1').value.trim();
+  person2Name = $('#create-name2').value.trim();
+  coupleId = genCode();
+
+  // Check uniqueness (unlikely collision but safe)
+  const exists = await db.ref('couples/' + coupleId + '/info').once('value');
+  if(exists.exists()) coupleId = genCode();
+
+  await db.ref('couples/' + coupleId + '/info').set({
+    person1: person1Name,
+    person2: person2Name,
+    created: Date.now()
+  });
+
+  $('#display-code').textContent = coupleId;
+  showScreen('code');
+});
+
+// ==================================================================
+// CODE SCREEN
+// ==================================================================
+$('#btn-copy-code').addEventListener('click', () => {
+  navigator.clipboard.writeText(coupleId).then(() => {
+    $('#btn-copy-code').textContent = '✅ Copied!';
+    setTimeout(() => $('#btn-copy-code').textContent = '📋 Copy Code', 2000);
+  }).catch(() => {});
+});
+
+$('#btn-code-continue').addEventListener('click', () => {
+  // Creator is person1 by default
+  myRole = 'person1';
+  saveLocal();
+  startSync();
+  initApp();
+  showScreen('app');
+});
+
+// ==================================================================
+// PICK SCREEN
+// ==================================================================
+let pickedRole = '';
+$$('.person-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('.person-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    pickedRole = btn.dataset.person;
+    $('#btn-pick-go').disabled = false;
+  });
+});
+
+$('#btn-pick-go').addEventListener('click', () => {
+  myRole = pickedRole;
+  saveLocal();
+  startSync();
+  initApp();
+  showScreen('app');
+});
+
+// ==================================================================
+// MAIN APP
+// ==================================================================
+function initApp() {
+  $('#app-names').textContent = `${person1Name} & ${person2Name}`;
+  $('#app-whoami').textContent = myName();
+  $$('.a-label[data-for="person1"]').forEach(el => el.textContent = person1Name);
+  $$('.a-label[data-for="person2"]').forEach(el => el.textContent = person2Name);
+  selectedAssignee = myRole;
+
+  // Notifications
+  if('Notification' in window && Notification.permission !== 'granted') {
+    $('#app-notif-btn').style.display = 'block';
+  }
+  $('#app-notif-btn').addEventListener('click', async () => {
+    const p = await Notification.requestPermission();
+    if(p==='granted') $('#app-notif-btn').style.display = 'none';
+  });
+}
+
+// RENDER
+function renderApp() {
+  const arr = Object.entries(reminders).map(([id,r]) => ({...r, id}));
+  const upcoming = arr.filter(r=>!r.done).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  const done = arr.filter(r=>r.done);
+  const list = activeTab==='upcoming' ? upcoming : done;
+
+  $('#app-count-up').textContent = upcoming.length;
+  $('#app-count-done').textContent = done.length;
+
+  const container = $('#app-list');
+  if(list.length===0) {
+    const isUp = activeTab==='upcoming';
+    container.innerHTML = `<div class="empty"><div class="empty-emoji">${isUp?'📝':'✨'}</div>
+      <p class="empty-text">${isUp?'No reminders yet!':'Nothing completed yet'}</p>
+      ${isUp?'<p class="empty-sub">Tap + to add a shared reminder</p>':''}</div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(r => {
+    const overdue = isOverdue(r);
+    const isMine = r.assignee === myRole || r.assignee === 'both';
+    const badgeClass = r.assignee===myRole ? 'badge-me' : r.assignee==='both' ? 'badge-both' : 'badge-partner';
+    return `<div class="reminder-card ${r.done?'done':''} ${overdue?'overdue':''} ${isMine&&!r.done?'mine':''}">
+      <button class="check-btn ${r.done?'checked':'undone'}" onclick="toggleDone('${r.id}')">${r.done?'✓':''}</button>
+      <div class="card-body">
+        <p class="card-msg ${r.done?'strike':''}">${escHtml(r.message)}</p>
+        <div class="card-meta">
+          <span class="badge ${badgeClass}">${emojiOf(r.assignee)} ${nameOf(r.assignee)}</span>
+          <span class="card-time">📅 ${fmtDate(r.date)} at ${fmtTime(r.time)}${overdue?' ⚠️':''}</span>
+        </div>
+        <p class="added-by">Added by ${nameOf(r.addedBy||'person1')}</p>
+      </div>
+      <div class="card-actions">
+        ${!r.done?`<button class="icon-btn" onclick="editR('${r.id}')">✏️</button>`:''}
+        <button class="icon-btn" onclick="deleteR('${r.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Check notifications
+  checkNotifs(upcoming);
+}
+
+// ACTIONS
+window.toggleDone = id => {
+  const r = reminders[id];
+  if(r) fbUpdate(id, { done: !r.done });
+};
+window.deleteR = id => { if(confirm('Delete this reminder?')) fbRemove(id); };
+window.editR = id => {
+  const r = reminders[id];
+  if(!r) return;
+  editingId = id;
+  $('#app-form-msg').value = r.message;
+  $('#app-form-date').value = r.date;
+  $('#app-form-time').value = r.time;
+  setAssignee(r.assignee);
+  $('#app-form-title').textContent = 'Edit Reminder';
+  $('#app-save').textContent = 'Update ♥';
+  $('#app-save').disabled = false;
+  $('#app-overlay').classList.add('show');
+};
+
+function setAssignee(val) {
+  selectedAssignee = val;
+  $$('#app-assignee-row .assignee-btn').forEach(b => b.classList.toggle('active', b.dataset.val === val));
+}
+
+// TABS
+$('#app-tab-upcoming').addEventListener('click', () => {
+  activeTab='upcoming';
+  $('#app-tab-upcoming').classList.add('active');
+  $('#app-tab-done').classList.remove('active');
+  renderApp();
+});
+$('#app-tab-done').addEventListener('click', () => {
+  activeTab='done';
+  $('#app-tab-done').classList.add('active');
+  $('#app-tab-upcoming').classList.remove('active');
+  renderApp();
+});
+
+// FAB & FORM
+$('#app-fab').addEventListener('click', () => {
+  editingId = null;
+  $('#app-form-msg').value = '';
+  $('#app-form-date').value = getToday();
+  $('#app-form-time').value = getNow();
+  setAssignee(myRole);
+  $('#app-form-title').textContent = 'New Reminder';
+  $('#app-save').textContent = 'Add Reminder ♥';
+  $('#app-save').disabled = true;
+  $('#app-overlay').classList.add('show');
+  setTimeout(() => $('#app-form-msg').focus(), 100);
+});
+
+$('#app-overlay').addEventListener('click', e => { if(e.target===$('#app-overlay')) closeForm(); });
+$('#app-cancel').addEventListener('click', closeForm);
+function closeForm() { $('#app-overlay').classList.remove('show'); editingId=null; }
+
+$$('#app-assignee-row .assignee-btn').forEach(b => {
+  b.addEventListener('click', () => setAssignee(b.dataset.val));
+});
+
+$('#app-form-msg').addEventListener('input', () => {
+  $('#app-save').disabled = !$('#app-form-msg').value.trim();
+});
+
+$('#app-save').addEventListener('click', () => {
+  const msg = $('#app-form-msg').value.trim();
+  if(!msg) return;
+  const data = {
+    message: msg,
+    date: $('#app-form-date').value,
+    time: $('#app-form-time').value,
+    assignee: selectedAssignee,
+    addedBy: myRole,
+    done: false,
+    created: Date.now()
+  };
+  if(editingId) {
+    fbUpdate(editingId, data);
+  } else {
+    fbSet(genId(), data);
+  }
+  closeForm();
+});
+
+// TOAST
+$('#app-toast-close').addEventListener('click', () => $('#app-toast').classList.remove('show'));
+
+// LOGOUT
+$('#app-logout-btn').addEventListener('click', () => {
+  if(confirm('Switch user or leave this space?')) {
+    localStorage.removeItem(LOCAL_KEY);
+    if(dbRef) dbRef.off();
+    location.reload();
+  }
+});
+
+// ==================================================================
+// NOTIFICATIONS
+// ==================================================================
+function checkNotifs(upcoming) {
+  const nowDate = getToday();
+  const nowTime = getNow();
+  (upcoming||[]).forEach(r => {
+    if(r.done) return;
+    const key = r.id+r.date+r.time;
+    if(notifiedSet.has(key)) return;
+    const isForMe = r.assignee === myRole || r.assignee === 'both';
+    if(r.date===nowDate && r.time===nowTime && isForMe) {
+      notifiedSet.add(key);
+      playChime();
+      $('#app-toast-msg').innerHTML = `<strong>${nameOf(r.assignee)}</strong>: ${escHtml(r.message)}`;
+      $('#app-toast').classList.add('show');
+      setTimeout(() => $('#app-toast').classList.remove('show'), 6000);
+      if(Notification.permission==='granted') {
+        new Notification(`⏰ ${escHtml(r.message)}`, { body: `Reminder for ${nameOf(r.assignee)}`, tag: key });
+      }
+    }
+  });
+}
+setInterval(() => renderApp(), 15000);
+
+// ==================================================================
+// INIT — AUTO-LOGIN IF RETURNING
+// ==================================================================
+if(loadLocal()) {
+  // Verify the couple still exists
+  db.ref('couples/'+coupleId+'/info').once('value').then(snap => {
+    if(snap.exists()) {
+      const info = snap.val();
+      person1Name = info.person1;
+      person2Name = info.person2;
+      saveLocal();
+      startSync();
+      initApp();
+      showScreen('app');
+    } else {
+      localStorage.removeItem(LOCAL_KEY);
+      showScreen('welcome');
+    }
+  }).catch(() => showScreen('welcome'));
+} else {
+  showScreen('welcome');
+}
+</script>
+</body>
+</html>
