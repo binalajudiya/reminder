@@ -47,8 +47,8 @@ async function main() {
     const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     timeChecks.push({ date: dateStr, time: timeStr });
 
-    // Also check 1-4 minutes ago (in case cron was slightly late)
-    for (let mBack = 1; mBack <= 4; mBack++) {
+    // Also check 1-14 minutes ago (covers gap between cron runs)
+    for (let mBack = 1; mBack <= 14; mBack++) {
       const dBack = new Date(d.getTime() - mBack * 60000);
       const dateBack = dBack.toISOString().split('T')[0];
       const timeBack = `${String(dBack.getHours()).padStart(2, '0')}:${String(dBack.getMinutes()).padStart(2, '0')}`;
