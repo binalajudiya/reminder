@@ -19,7 +19,7 @@ messaging.onBackgroundMessage((payload) => {
   console.log('[SW] Background message:', payload);
 
   const title = payload.notification?.title || '⏰ We Remember';
-  const body = payload.notification?.body || 'You have a reminder!';
+  const body = payload.notification?.body || 'You have a reminder! ';
 
   self.registration.showNotification(title, {
     body: body,
