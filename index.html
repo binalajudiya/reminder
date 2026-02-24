@@ -6,6 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#E8626C">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <title>We Remember 💕</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -419,7 +421,6 @@
 <!-- ============================================================ -->
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
 
 <script>
 // ==================================================================
@@ -438,12 +439,10 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// ⚠️ PASTE YOUR VAPID KEY BELOW (Firebase Console → Project Settings → Cloud Messaging → Web Push certificates → Generate key pair)
-const VAPID_KEY = 'BHtgnxgKIlXTVjMzM527-2snveyUthu0Qzp7jt9T_Kpwbl2BV5BM6uOxzolcc7p1OE2PtaL_lmuXWddPUbxGF_A';
+// Standard Web Push VAPID key (works with Safari/iPhone)
+const VAPID_PUBLIC_KEY = 'BP858DqGkMwcLK_HKkCIVCN4F0mheY7aaoyN2fQnaAflFMW2zPGKB-Vxp34nqajtxyXIDZ_BIaEIJGO4_axjDsw';
 
-let messaging = null;
-try { messaging = firebase.messaging(); } catch(e) { console.log('FCM not supported'); }
-let fcmToken = null;
+let pushSubscription = null;
 
 // ==================================================================
 // STATE
@@ -551,43 +550,64 @@ function fbRemove(id) { db.ref(`couples/${coupleId}/reminders/${id}`).remove(); 
 function fbUpdate(id, data) { db.ref(`couples/${coupleId}/reminders/${id}`).update(data); }
 
 // ==================================================================
-// FCM PUSH NOTIFICATIONS
+// STANDARD WEB PUSH (Safari/iPhone compatible)
 // ==================================================================
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return new Uint8Array([...rawData].map(c => c.charCodeAt(0)));
+}
+
 async function setupPush() {
   const pushEl = $('#push-status');
   const updateStatus = (s) => { if(pushEl) pushEl.textContent = 'PUSH: ' + s; };
 
-  if(!messaging) { updateStatus('N/A'); return; }
-  if(VAPID_KEY === 'YOUR_VAPID_KEY_HERE') { updateStatus('⚠️ Set VAPID key'); return; }
+  // Check support
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    updateStatus('N/A (not supported)');
+    return;
+  }
 
   try {
-    const sw = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    // Register service worker
+    const sw = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+    console.log('SW registered');
+
+    // Request permission
     const permission = await Notification.requestPermission();
-    if(permission !== 'granted') { updateStatus('DENIED'); return; }
+    if (permission !== 'granted') {
+      updateStatus('DENIED');
+      return;
+    }
 
-    fcmToken = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: sw });
-    if(!fcmToken) { updateStatus('NO TOKEN'); return; }
+    // Subscribe to push
+    pushSubscription = await sw.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
 
-    // Store token in Firebase
-    const tokenKey = fcmToken.substring(0, 20);
-    await db.ref(`couples/${coupleId}/tokens/${tokenKey}`).set({
-      token: fcmToken, role: myRole, name: myRole==='person1'?person1Name:person2Name, updated: Date.now()
+    console.log('Push subscription:', JSON.stringify(pushSubscription.toJSON()));
+
+    // Store subscription in Firebase
+    const subData = pushSubscription.toJSON();
+    const subKey = btoa(subData.endpoint).replace(/[^a-zA-Z0-9]/g, '').substring(0, 30);
+    await db.ref(`couples/${coupleId}/subscriptions/${subKey}`).set({
+      subscription: {
+        endpoint: subData.endpoint,
+        keys: subData.keys
+      },
+      role: myRole,
+      name: myRole === 'person1' ? person1Name : person2Name,
+      updated: Date.now()
     });
 
     updateStatus('✅ ON');
     $('#app-notif-btn').style.display = 'none';
 
-    // Foreground messages
-    messaging.onMessage((payload) => {
-      playChime();
-      const title = payload.notification?.title || 'Reminder';
-      const body = payload.notification?.body || '';
-      $('#app-toast-msg').innerHTML = `<strong>${escHtml(title)}</strong>: ${escHtml(body)}`;
-      $('#app-toast').classList.add('show');
-      setTimeout(() => $('#app-toast').classList.remove('show'), 8000);
-    });
-  } catch(err) {
-    console.error('Push error:', err);
+  } catch (err) {
+    console.error('Push setup error:', err);
     updateStatus('ERR: ' + err.message.substring(0, 30));
   }
 }
@@ -853,10 +873,11 @@ $('#app-toast-close').addEventListener('click', () => $('#app-toast').classList.
 // LOGOUT
 $('#app-logout-btn').addEventListener('click', () => {
   if(confirm('Switch user or leave this space?')) {
-    // Remove FCM token from Firebase
-    if(fcmToken && coupleId) {
-      const tokenKey = fcmToken.substring(0, 20);
-      db.ref(`couples/${coupleId}/tokens/${tokenKey}`).remove();
+    // Remove push subscription from Firebase
+    if(pushSubscription && coupleId) {
+      const subData = pushSubscription.toJSON();
+      const subKey = btoa(subData.endpoint).replace(/[^a-zA-Z0-9]/g, '').substring(0, 30);
+      db.ref(`couples/${coupleId}/subscriptions/${subKey}`).remove();
     }
     localStorage.removeItem(LOCAL_KEY);
     if(dbRef) dbRef.off();
