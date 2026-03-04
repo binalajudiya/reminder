@@ -559,56 +559,121 @@ function urlBase64ToUint8Array(base64String) {
   return new Uint8Array([...rawData].map(c => c.charCodeAt(0)));
 }
 
-async function setupPush() {
+// Step 1: Request permission IMMEDIATELY on user tap (before any async work)
+// iOS Safari expires user gesture context after any await
+async function requestNotifPermission() {
+  if (!('Notification' in window)) return 'unsupported';
+  // This MUST be the first thing called in a click handler — no awaits before it
+  const permission = await Notification.requestPermission();
+  console.log('Permission result:', permission);
+  return permission;
+}
+
+// Step 2: Register SW and subscribe to push (can be called after permission is granted)
+async function setupPushSubscription() {
   const pushEl = $('#push-status');
   const updateStatus = (s) => { if(pushEl) pushEl.textContent = 'PUSH: ' + s; };
 
-  // Check support
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     updateStatus('N/A (not supported)');
     return;
   }
 
-  try {
-    // Register service worker
-    const sw = await navigator.serviceWorker.register('/sw.js');
-    await navigator.serviceWorker.ready;
-    console.log('SW registered');
+  // Check if permission is already granted
+  if (Notification.permission !== 'granted') {
+    updateStatus('DENIED');
+    // Show the bell button so user can tap it to re-request
+    $('#app-notif-btn').style.display = 'block';
+    $('#app-notif-btn').textContent = '\uD83D\uDD14 Enable';
+    return;
+  }
 
-    // Request permission
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      updateStatus('DENIED');
-      return;
+  try {
+    const sw = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
+    sw.update().catch(() => {});
+    const ready = await navigator.serviceWorker.ready;
+    console.log('SW registered and ready');
+
+    // Check existing subscription
+    let existingSub = await ready.pushManager.getSubscription();
+    if (existingSub) {
+      try {
+        if (!existingSub.options?.applicationServerKey) {
+          await existingSub.unsubscribe();
+          existingSub = null;
+        }
+      } catch (e) {
+        try { await existingSub.unsubscribe(); } catch(e2) {}
+        existingSub = null;
+      }
     }
 
-    // Subscribe to push
-    pushSubscription = await sw.pushManager.subscribe({
+    pushSubscription = existingSub || await ready.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
     });
 
     console.log('Push subscription:', JSON.stringify(pushSubscription.toJSON()));
 
-    // Store subscription in Firebase
+    // Store in Firebase
     const subData = pushSubscription.toJSON();
     const subKey = btoa(subData.endpoint).replace(/[^a-zA-Z0-9]/g, '').substring(0, 30);
     await db.ref(`couples/${coupleId}/subscriptions/${subKey}`).set({
-      subscription: {
-        endpoint: subData.endpoint,
-        keys: subData.keys
-      },
+      subscription: { endpoint: subData.endpoint, keys: subData.keys },
       role: myRole,
       name: myRole === 'person1' ? person1Name : person2Name,
       updated: Date.now()
     });
 
-    updateStatus('✅ ON');
+    updateStatus('\u2705 ON');
     $('#app-notif-btn').style.display = 'none';
+
+    // Listen for subscription changes from SW
+    navigator.serviceWorker.addEventListener('message', async (event) => {
+      if (event.data?.type === 'SUBSCRIPTION_CHANGED' && event.data.subscription) {
+        const newSub = event.data.subscription;
+        const newSubKey = btoa(newSub.endpoint).replace(/[^a-zA-Z0-9]/g, '').substring(0, 30);
+        await db.ref(`couples/${coupleId}/subscriptions/${newSubKey}`).set({
+          subscription: { endpoint: newSub.endpoint, keys: newSub.keys },
+          role: myRole,
+          name: myRole === 'person1' ? person1Name : person2Name,
+          updated: Date.now()
+        });
+        updateStatus('\u2705 ON (renewed)');
+      }
+    });
 
   } catch (err) {
     console.error('Push setup error:', err);
     updateStatus('ERR: ' + err.message.substring(0, 30));
+  }
+}
+
+// Combined: request permission (needs user gesture) then setup subscription
+async function setupPush() {
+  const permission = await requestNotifPermission();
+  if (permission === 'granted') {
+    await setupPushSubscription();
+  } else {
+    const pushEl = $('#push-status');
+    if(pushEl) pushEl.textContent = 'PUSH: ' + (permission === 'unsupported' ? 'N/A' : 'DENIED');
+    // Show bell button for retry
+    if (permission !== 'unsupported') {
+      $('#app-notif-btn').style.display = 'block';
+      $('#app-notif-btn').textContent = '\uD83D\uDD14 Enable';
+    }
+  }
+}
+
+// For auto-login (no user gesture): only setup if already granted, don't request
+async function setupPushSilent() {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    await setupPushSubscription();
+  } else {
+    const pushEl = $('#push-status');
+    if(pushEl) pushEl.textContent = 'PUSH: tap \uD83D\uDD14 to enable';
+    $('#app-notif-btn').style.display = 'block';
+    $('#app-notif-btn').textContent = '\uD83D\uDD14 Enable';
   }
 }
 
@@ -966,7 +1031,8 @@ if(loadLocal()) {
       startSync();
       initApp();
       showScreen('app');
-      setupPush();
+      // Auto-login: NO user gesture, so don't request permission — just reconnect if already granted
+      setupPushSilent();
     } else {
       localStorage.removeItem(LOCAL_KEY);
       showScreen('welcome');
